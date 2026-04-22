@@ -23,9 +23,9 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 COPY src/requirements.txt /app/src/requirements.txt
-RUN pip3 install --no-cache-dir --break-system-packages \
+RUN pip3 install --no-cache-dir -break-system-packages \
     -r /app/src/requirements.txt \
-    Pillow
+    Pillow 
 
 
 COPY data/ /app/data/
