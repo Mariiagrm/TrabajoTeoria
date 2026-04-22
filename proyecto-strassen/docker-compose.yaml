@@ -1,0 +1,12 @@
+services:
+  pam-teoria:
+    build: .
+    environment:                                                                                                                          
+        - DISPLAY=${DISPLAY}
+    image: pam-teoria
+    volumes:
+      - .:/app/        # cambios en src/ se reflejan al instante
+      - /tmp/.X11-unix:/tmp/.X11-unix
+
+    working_dir: /app/src
+    #command: bash -c "python3 utils.py 1 && tail -f /dev/null"

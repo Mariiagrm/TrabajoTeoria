@@ -1,0 +1,4 @@
+algoritmo,tiempo_s,n
+rotacion_paralela_nx3,0.000357,1897
+strassen_secuencial,7.858251,2048
+strassen_paralelo,2.985381,2048
