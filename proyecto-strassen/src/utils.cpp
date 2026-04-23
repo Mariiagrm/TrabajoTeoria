@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <omp.h>
 #include <string>
+#include <algorithm>
 #include <stdio.h>
 
 cv::Mat preprocessImage(const cv::Mat& img) {
@@ -61,7 +62,10 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> imageFiles;
 
     for (const auto& entry : std::filesystem::directory_iterator(path)) {
-        if (entry.is_regular_file())
+        if (!entry.is_regular_file()) continue;
+        std::string ext = entry.path().extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tif" || ext == ".tiff")
             imageFiles.push_back(entry.path().string());
     }
     std::sort(imageFiles.begin(), imageFiles.end());
@@ -71,8 +75,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Imagenes encontradas: " << N
               << " | Hilos disponibles: " << max_threads << std::endl;
 
-    std::filesystem::create_directories("./procesadas");
-    std::filesystem::create_directories("./procesadas_sec");
+    std::filesystem::create_directories("../data/clean_images");
 
     // ── Versión SECUENCIAL ────────────────────────────────────────────────────
     std::cout << "\n[Secuencial] Iniciando..." << std::endl;
@@ -85,8 +88,6 @@ int main(int argc, char* argv[]) {
             continue;
         }
         cv::Mat processed = preprocessImage(img);
-        std::string outPath = "./procesadas_sec/processed_" + std::to_string(i) + ".jpg";
-        cv::imwrite(outPath, processed);
     }
 
     double t_sec = omp_get_wtime() - t_sec_ini;
@@ -106,7 +107,8 @@ int main(int argc, char* argv[]) {
             continue;
         }
         cv::Mat processed = preprocessImage(img);
-        std::string outPath = "./procesadas/processed_" + std::to_string(i) + ".jpg";
+
+        std::string outPath = "../data/clean_images/processed_" + std::to_string(i) + ".jpg";
         cv::imwrite(outPath, processed);
     }
 
@@ -120,12 +122,12 @@ int main(int argc, char* argv[]) {
     std::cout << "--------------------------------------------------" << std::endl;
 
     // ── Exportar tiempos al CSV compartido (append para no borrar main.cpp) ──
-    FILE *csv = fopen("../data_binaria/tiempos.csv", "a");
+    FILE *csv = fopen("../results/tiempos.csv", "a");
     if (csv) {
         fprintf(csv, "preprocesamiento_limpieza_imagenes_secuencial,%.6f,%d\n", t_sec, N);
         fprintf(csv, "preprocesamiento_limpieza_imagenes_paralelo,%.6f,%d\n",   t_par, N);
         fclose(csv);
-        std::cout << "Tiempos de preprocesamiento de limpieza de imagenes exportados a ../data_binaria/tiempos.csv" << std::endl;
+        std::cout << "Tiempos de preprocesamiento de limpieza de imagenes exportados a ../results/tiempos.csv" << std::endl;
     }
 
     return 0;

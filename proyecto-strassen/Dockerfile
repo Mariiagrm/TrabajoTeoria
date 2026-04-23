@@ -24,6 +24,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
               /var/lib/apt/lists/*
 
 
+
+
 WORKDIR /app
 
 COPY src/requirements.txt /app/src/requirements.txt

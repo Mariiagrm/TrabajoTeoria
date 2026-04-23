@@ -146,5 +146,8 @@ for node, (x, y) in pos.items():
 
 plt.title("Árbol de Recursión de Strassen (N=8) - Asignación de Hilos", fontsize=16)
 plt.figtext(0.5, 0.05, "Naranja: Casos Base (N=2, mostrando el Hilo), Verde: Tareas N=4, Azul: Raíz N=8", ha="center", fontsize=12)
-plt.savefig("arbol_strassen.png", bbox_inches="tight")
+import os
+_out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "results", "plots", "arbol_strassen.png")
+os.makedirs(os.path.dirname(_out), exist_ok=True)
+plt.savefig(_out, bbox_inches="tight")
 plt.close()

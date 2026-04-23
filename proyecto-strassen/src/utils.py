@@ -45,22 +45,23 @@ def reconstruccion_directorio(ruta_directorio, K):
 
     
     print("Procedemos a limpiar las imágenes con la gaussiana y el umbral de otsu...")
-    # #resultado = subprocess.run(
-    # #    ["./utils", str(ruta_directorio)],
+    resultado = subprocess.run(
+        ["./utils", str(ruta_directorio)],
         
-    # #)
-    # if resultado.returncode != 0:
-    #     print(f"Error al ejecutar utils (código {resultado.returncode}), intentando compilar...")
-    #     subprocess.run("make utils", shell=True)
-    #     subprocess.run(["./utils", str(ruta_directorio)])
+    )
+    if resultado.returncode != 0:
+        print(f"Error al ejecutar utils (código {resultado.returncode}), intentando compilar...")
+        subprocess.run("make utils", shell=True)
+        subprocess.run(["./utils", str(ruta_directorio)])
 
     print("Preprocesando imágenes y calculando descriptores SIFT... (esto puede tardar un poco)")
-    print("Alternativa más rapida con kernel de CUDA, si tienes GPU compatible [S/N]: ", end="")
+    print("Alternativa más rapida con kernel de CUDA, si tienes GPU compatible [S/N]: \n ", end="")
     
     keypoints_list, descriptores_list = [], []
 
-    src_dir = Path(__file__).parent  # always src/
-    ruta_procesadas = src_dir / "procesadas"
+    proj_dir = Path(__file__).resolve().parent.parent  # project root
+    ruta_procesadas = proj_dir / "data" / "clean_images"
+    print(f"Buscando imágenes preprocesadas en: {ruta_procesadas}")
 
     # Leer imágenes procesadas (pobladas por cuda_sift o por la ruta CPU)
     archivos = sorted([f for f in os.listdir(ruta_procesadas)
@@ -68,45 +69,92 @@ def reconstruccion_directorio(ruta_directorio, K):
 
     
     respuesta = input().strip().lower()
-    if respuesta == 's':
-        print("Ejecutando preprocesamiento optimizado con GPU (CUDA)...")
-        resultado = subprocess.run( ["./cuda_sift", str(ruta_directorio)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
-        if resultado.returncode != 0:
-            print(f"Error al ejecutar cuda_sift (código {resultado.returncode}):\n{resultado.stderr}")
-            print("Asegúrate de tener CUDA configurado correctamente y la versión de OpenCV compatible.")
-            sys.exit(1)
-        else:
-            print(resultado.stdout)
-    else:
-        print("Ejecutando preprocesamiento secuencial en CPU...")
 
-    
     if len(archivos) < 2:
         raise ValueError("Se necesitan al menos 2 imágenes en el directorio.")
 
-    print(f"Encontradas {len(archivos)} imágenes. Calculando descriptores SIFT con 2 hilos...")
+    csv_path = Path(__file__).resolve().parent.parent / "results" / "tiempos.csv"
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
 
-    def _procesar(archivo):
-        img = cv2.imread(str(ruta_procesadas / archivo), cv2.IMREAD_GRAYSCALE)
-        if img is None:
-            raise ValueError(f"No se pudo cargar: {archivo}")
-        sift_local = cv2.SIFT_create()
-        return sift_local.detectAndCompute(img, None)
+    if respuesta == 's':
+        print("Ejecutando preprocesamiento optimizado con GPU (CUDA)...")
+        print(f"Encontradas {len(archivos)} imágenes. Calculando descriptores SIFT con CUDA...")
 
-    time_start = time.time()
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        resultados = list(executor.map(_procesar, archivos))
-    time_end = time.time()
-    print(f"Tiempo total de cálculo de descriptores SIFT: {time_end - time_start:.2f} segundos")
+        time_start = time.time()
+        resultado = subprocess.run(
+            ["./cuda_sift", str(ruta_procesadas)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        time_end = time.time()
+        if resultado.returncode != 0:
+            print(f"Error al ejecutar cuda_sift (código {resultado.returncode}):\n{resultado.stderr}")
+            sys.exit(1)
+        print(resultado.stdout)
+        print(f"Tiempo total de cálculo de descriptores SIFT: {time_end - time_start:.2f} segundos")
 
-    csv_path = Path(__file__).parent.parent / "data_binaria" / "tiempos.csv"
-    with open(csv_path, "a") as f:
-        f.write(f"sift_descriptores,{time_end - time_start:.6f},{len(archivos)}\n")
-    print("Descriptores SIFT calculados.")
+        with open(csv_path, "a") as f:
+            f.write(f"sift_descriptores_cuda,{time_end - time_start:.6f},{len(archivos)}\n")
+
+        # Leer los .sift binarios escritos por cuda_sift y reconstruir
+        # (keypoints, descriptors) 
+        kp_dtype = np.dtype([
+            ("x",        np.float32),
+            ("y",        np.float32),
+            ("sigma",    np.float32),
+            ("angle",    np.float32),
+            ("response", np.float32),
+            ("octave",   np.int32),
+        ])
+        resultados = []
+        for archivo in archivos:
+            
+            cuda_trans = proj_dir / "data" / "procesadas_filtros_cuda"
+
+            sift_path = cuda_trans / (Path(archivo).stem + ".sift")
+            with open(sift_path, "rb") as f:
+                n = int(np.fromfile(f, dtype=np.int32, count=1)[0])
+                if n == 0:
+                    resultados.append(([], None))
+                    continue
+                kp_raw = np.fromfile(f, dtype=kp_dtype, count=n)
+                desc = np.fromfile(f, dtype=np.float32, count=n * 128).reshape(n, 128)
+            keypoints = [
+                cv2.KeyPoint(
+                    x=float(k["x"]),
+                    y=float(k["y"]),
+                    size=float(k["sigma"]) * 2.0,
+                    angle=float(np.degrees(k["angle"])),
+                    response=float(k["response"]),
+                    octave=int(k["octave"]),
+                )
+                for k in kp_raw
+            ]
+            resultados.append((keypoints, desc))
+        print("Descriptores SIFT calculados (CUDA).")
+
+
+    else:
+        print("Ejecutando preprocesamiento secuencial en CPU...")
+        print(f"Encontradas {len(archivos)} imágenes. Calculando descriptores SIFT con 2 hilos...")
+
+        def _procesar(archivo):
+            img = cv2.imread(str(ruta_procesadas / archivo), cv2.IMREAD_GRAYSCALE)
+            if img is None:
+                raise ValueError(f"No se pudo cargar: {archivo}")
+            sift_local = cv2.SIFT_create()
+            return sift_local.detectAndCompute(img, None)
+
+        time_start = time.time()
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            resultados = list(executor.map(_procesar, archivos))
+        time_end = time.time()
+        print(f"Tiempo total de cálculo de descriptores SIFT: {time_end - time_start:.2f} segundos")
+
+        with open(csv_path, "a") as f:
+            f.write(f"sift_descriptores,{time_end - time_start:.6f},{len(archivos)}\n")
+        print("Descriptores SIFT calculados.")
 
     keypoints_list   = [r[0] for r in resultados]
     descriptores_list = [r[1] for r in resultados]
@@ -207,8 +255,8 @@ def visualizar_resultado():
     import plotly.graph_objects as go
 
     # 1. Rutas de los archivos
-    ruta_csv = ruta("data_binaria/puntos_rotados.csv")
-    ruta_bin = ruta("data_binaria/puntos_originales.csv")
+    ruta_csv = ruta("results/cloud_points/puntos_rotados.csv")
+    ruta_bin = ruta("results/cloud_points/puntos_originales.csv")
 
     if not ruta_csv.exists():
         print(f"Error: No se encuentra el archivo {ruta_csv}")
@@ -252,7 +300,8 @@ def visualizar_resultado():
             zaxis_title='Eje Y (Altura)'
         )
     )
-    ruta_html = ruta("data_binaria/resultado_3d.html")
+    ruta_html = ruta("results/plots/resultado_3d.html")
+    ruta_html.parent.mkdir(parents=True, exist_ok=True)
     fig_html.write_html(str(ruta_html))
     print(f"Gráfico interactivo guardado en: {ruta_html}  (abrir en navegador)")
 
@@ -271,7 +320,7 @@ def visualizar_resultado():
     ax.set_box_aspect([1, 1, 1])
     plt.legend()
     plt.tight_layout()
-    ruta_guardado = ruta("data_binaria/resultado_3d.png")
+    ruta_guardado = ruta("results/plots/resultado_3d.png")
     plt.savefig(ruta_guardado)
     print(f"Gráfico estático guardado en:     {ruta_guardado}")
     if os.environ.get("DISPLAY"):
@@ -310,11 +359,11 @@ if __name__ == "__main__":
                             
 
         # 2. Reconstrucción 3D desde todas las fotos del directorio
-        ruta_fotos = ruta("data/test/")
+        ruta_fotos = ruta("data/")
         puntos_3d_resultado = reconstruccion_directorio(ruta_fotos, K_ejemplo)
-        
-        # 3. Mandar el resultado 3D a C 
-        exportar_puntos_a_binario(puntos_3d_resultado, ruta("data_binaria/puntos_3d.bin"))
+
+        # 3. Mandar el resultado 3D a C
+        exportar_puntos_a_binario(puntos_3d_resultado, ruta("results/cloud_points/puntos_3d.bin"))
     elif parametro =="2":
         print("--- PASO 3: Visualización de Resultados tras multiplicacion de matrices ---")
 

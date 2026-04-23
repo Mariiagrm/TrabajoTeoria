@@ -561,6 +561,8 @@ static SiftResult cuda_sift(const cv::Mat& gray_img)
                 for (int i = 0; i < oct_w; i++)
                     h_down[j * oct_w + i] = h_prev[(2*j) * prev_w + (2*i)];
             cudaMemcpy(d_down, h_down.data(), oct_n * sizeof(float), cudaMemcpyHostToDevice);
+            // Liberar el gauss[SIFT_INTERVALS] de la octava previa (ya volcado a CPU).
+            cudaFree(oct_input);
             oct_input = d_down;
         }
 
@@ -608,6 +610,7 @@ static SiftResult cuda_sift(const cv::Mat& gray_img)
             // no liberar oct_input todavía; se liberará al inicio del próximo oct
         } else {
             if (oct > 0) cudaFree(oct_input);
+            oct_input = nullptr;   // evitar double-free posterior
         }
 
         for (int s = 0; s < SIFT_GAUSS_PER_OCT; s++)
@@ -616,7 +619,7 @@ static SiftResult cuda_sift(const cv::Mat& gray_img)
         for (int s = 0; s < SIFT_DOG_PER_OCT; s++)
             cudaFree(dog[s]);
     }
-    if (oct_input != d_base) cudaFree(oct_input);
+    if (oct_input && oct_input != d_base) cudaFree(oct_input);
     cudaFree(d_base);
 
     // ── Número de keypoints detectados ────────────────────────────────────
@@ -742,7 +745,7 @@ int main(int argc, char* argv[])
 {
     namespace fs = std::filesystem;
 
-    std::string dir = (argc >= 2) ? argv[1] : "./procesadas";
+    std::string dir = (argc >= 2) ? argv[1] : "../data/procesadas_filtros_cuda";
 
     // Recopilar imágenes
     std::vector<std::string> files;
@@ -777,6 +780,9 @@ int main(int argc, char* argv[])
     cudaEventCreate(&t1);
     cudaEventRecord(t0);
 
+    std::string out_dir = "../data/procesadas_filtros_cuda";
+    fs::create_directories(out_dir);
+
     for (const auto& fpath : files) {
         cv::Mat img = cv::imread(fpath, cv::IMREAD_GRAYSCALE);
         if (img.empty()) {
@@ -788,7 +794,8 @@ int main(int argc, char* argv[])
         std::cout << "  " << fs::path(fpath).filename().string()
                   << " → " << res.keypoints.size() << " keypoints\n";
 
-        std::string out = fpath.substr(0, fpath.rfind('.')) + ".sift";
+        std::string stem = fs::path(fpath).stem().string();
+        std::string out = out_dir + "/" + stem + ".sift";
         write_sift_binary(out, res);
     }
 
@@ -796,9 +803,18 @@ int main(int argc, char* argv[])
     cudaEventSynchronize(t1);
     float ms = 0;
     cudaEventElapsedTime(&ms, t0, t1);
-    std::cout << "cuda_sift: completado en " << ms / 1000.0f << " s\n";
+    float t_cuda = ms / 1000.0f;
+    std::cout << "cuda_sift: completado en " << t_cuda << " s\n";
 
     cudaEventDestroy(t0);
     cudaEventDestroy(t1);
+
+    FILE *csv = fopen("../results/tiempos.csv", "a");
+    if (csv) {
+        fprintf(csv, "sift_cuda,%.6f,%d\n", t_cuda, (int)files.size());
+        fclose(csv);
+        std::cout << "Tiempo CUDA exportado a ../results/tiempos.csv" << std::endl;
+    }
+
     return 0;
 }
