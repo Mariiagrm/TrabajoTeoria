@@ -23,16 +23,14 @@ NVCCFLAGS = -std=c++17 -O3 $(CUDA_GENCODE) --expt-relaxed-constexpr \
 LDFLAGS      = -fopenmp $(shell pkg-config --libs opencv4)
 NVCC_LDFLAGS = $(shell pkg-config --libs opencv4) -lstdc++fs
 
-TARGET1    = multiplicador_matrices
+TARGET1    = program # Nombre del ejecutable principal
 TARGET2    = utils
 TARGET3    = cuda_sift
-TARGET4    = benchmark_strassen
 
 # Lista de archivos fuente
-SRCS1 = main.cpp matrix_io.cpp 
+SRCS1 = main.cpp 
 SRCS2 = utils.cpp
 SRCS3 = cuda_sift.cu
-SRCS4 = benchmark_strassen.cpp matrix_io.cpp strassen_3d.cpp
 
 # Generar lista de objetos (.o) y de dependencias (.d) a partir de los fuentes
 OBJS1 = $(SRCS1:.cpp=.o)

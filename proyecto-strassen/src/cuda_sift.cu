@@ -25,7 +25,7 @@
 #include <fstream>
 #include <iostream>
 
-// ─────────────────────────────── Parámetros SIFT ───────────────────────────
+//  Parámetros SIFT 
 #define SIFT_OCTAVES         4
 #define SIFT_INTERVALS       3                          // s
 #define SIFT_GAUSS_PER_OCT   (SIFT_INTERVALS + 3)      // 6
@@ -55,7 +55,7 @@
 #define EXT_BX               16
 #define EXT_BY               16
 
-// ─────────────────────────────── Estructuras ───────────────────────────────
+//  Estructuras 
 struct GpuKeypoint {
     float x, y;
     float sigma;
@@ -485,12 +485,12 @@ static SiftResult cuda_sift(const cv::Mat& gray_img)
     int up_w  = src_w * 2;
     int up_h  = src_h * 2;
 
-    // ── Subir imagen a GPU ──────────────────────────────────────────────────
+    //  Subir imagen a GPU 
     unsigned char* d_src;
     cudaMalloc(&d_src, src_w * src_h);
     cudaMemcpy(d_src, gray_img.data, src_w * src_h, cudaMemcpyHostToDevice);
 
-    // ── Upsample 2× de la imagen base ──────────────────────────────────────
+    //  Upsample 2× de la imagen base 
     float* d_base;
     cudaMalloc(&d_base, up_w * up_h * sizeof(float));
     {
@@ -511,14 +511,14 @@ static SiftResult cuda_sift(const cv::Mat& gray_img)
         d_base = blurred;
     }
 
-    // ── Buffers para keypoints (conteo en GPU) ─────────────────────────────
+    //  Buffers para keypoints (conteo en GPU) 
     GpuKeypoint* d_kpts;
     int*         d_count;
     cudaMalloc(&d_kpts,  MAX_KEYPOINTS * sizeof(GpuKeypoint));
     cudaMalloc(&d_count, sizeof(int));
     cudaMemset(d_count, 0, sizeof(int));
 
-    // ── Pirámide gaussiana + DoG por octava ───────────────────────────────
+    //  Pirámide gaussiana + DoG por octava 
     float k_factor = powf(2.0f, 1.0f / SIFT_INTERVALS);
 
     // Sigmas incrementales entre escalas consecutivas de la misma octava
@@ -622,7 +622,7 @@ static SiftResult cuda_sift(const cv::Mat& gray_img)
     if (oct_input && oct_input != d_base) cudaFree(oct_input);
     cudaFree(d_base);
 
-    // ── Número de keypoints detectados ────────────────────────────────────
+    //  Número de keypoints detectados 
     int h_count = 0;
     cudaMemcpy(&h_count, d_count, sizeof(int), cudaMemcpyDeviceToHost);
     cudaFree(d_count);
@@ -632,7 +632,7 @@ static SiftResult cuda_sift(const cv::Mat& gray_img)
         return result;
     }
 
-    // ── Recalcular gradientes sobre la imagen original redimensionada ──────
+    //  Recalcular gradientes sobre la imagen original redimensionada 
     // Usamos la imagen de entrada en float (convertida sin upsample para grad)
     float* d_img_f;
     cudaMalloc(&d_img_f, src_w * src_h * sizeof(float));
@@ -674,14 +674,14 @@ static SiftResult cuda_sift(const cv::Mat& gray_img)
     cudaFree(d_up_f);
     cudaFree(d_img_f);
 
-    // ── Orientación ─────────────────────────────────────────────────────────
+    //  Orientación 
     {
         int tpb = 128;
         k_orientation<<<(h_count + tpb - 1) / tpb, tpb>>>(
             d_mag, d_ori, up_w, up_h, d_kpts, h_count);
     }
 
-    // ── Descriptores ────────────────────────────────────────────────────────
+    //  Descriptores 
     float* d_descs;
     cudaMalloc(&d_descs, h_count * DESCRIPTOR_DIMS * sizeof(float));
     {
@@ -693,7 +693,7 @@ static SiftResult cuda_sift(const cv::Mat& gray_img)
     cudaFree(d_mag);
     cudaFree(d_ori);
 
-    // ── Copiar resultados a host ─────────────────────────────────────────────
+    //  Copiar resultados a host 
     result.keypoints.resize(h_count);
     result.descriptors.resize(h_count * DESCRIPTOR_DIMS);
 

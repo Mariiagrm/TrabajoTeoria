@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include "matrix_io.h"
 
-// ── Strassen helpers ──────────────────────────────────────────────────────────
+//  Strassen helpers 
 
 int verificar_resultados(Matrix A, Matrix B) {
     if (A.size != B.size) {
@@ -78,52 +78,3 @@ Matrix multiplicacion_clasica(Matrix A, Matrix B) {
     return C;
 }
 
-// ── Nx3 point-cloud I/O ───────────────────────────────────────────────────────
-
-double **cargar_puntos_sin_padding(const char *ruta_bin, int *out_rows, int *out_cols) {
-    *out_rows = 0;
-    *out_cols = 0;
-
-    FILE *f = fopen(ruta_bin, "rb");
-    if (!f) { perror("Error al abrir binario"); return NULL; }
-
-    int dims[2];
-    if (fread(dims, sizeof(int), 2, f) != 2) {
-        printf("Error: cabecera inválida en %s\n", ruta_bin);
-        fclose(f);
-        return NULL;
-    }
-
-    int rows = dims[0];
-    int cols = dims[1];
-
-    double **data = (double **)malloc(rows * sizeof(double *));
-    for (int i = 0; i < rows; i++) {
-        data[i] = (double *)malloc(cols * sizeof(double));
-        if (fread(data[i], sizeof(double), cols, f) != (size_t)cols) {
-            printf("Error leyendo fila %d\n", i);
-            fclose(f);
-            return NULL;
-        }
-    }
-
-    fclose(f);
-    *out_rows = rows;
-    *out_cols = cols;
-    printf("Puntos cargados: %d filas x %d columnas\n", rows, cols);
-    return data;
-}
-
-void exportar_puntos_csv(const char *ruta_csv, double **data, int rows, int cols) {
-    FILE *f = fopen(ruta_csv, "w");
-    if (!f) { perror("Error al crear CSV"); return; }
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            if (j > 0) fprintf(f, ",");
-            fprintf(f, "%.10f", data[i][j]);
-        }
-        fprintf(f, "\n");
-    }
-    fclose(f);
-    printf("CSV exportado (%dx%d): %s\n", rows, cols, ruta_csv);
-}

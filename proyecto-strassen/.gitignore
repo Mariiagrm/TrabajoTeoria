@@ -1,0 +1,9 @@
+data/clean_images/
+data/procesadas_filtro_secuencial/
+data/procesadas_filtros_cuda/
+results/cloud_points/
+
+# Artefactos de compilacion
+*.o
+*.d
+src/strassen/benchmark_strassen

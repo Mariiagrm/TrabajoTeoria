@@ -52,6 +52,8 @@ cv::Mat preprocessImage(const cv::Mat& img) {
     return result;
 }
 
+
+
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Uso: " << argv[0] << " <ruta_carpeta>" << std::endl;
@@ -77,7 +79,7 @@ int main(int argc, char* argv[]) {
 
     std::filesystem::create_directories("../data/clean_images");
 
-    // ── Versión SECUENCIAL ────────────────────────────────────────────────────
+    //  Versión SECUENCIAL 
     std::cout << "\n[Secuencial] Iniciando..." << std::endl;
     double t_sec_ini = omp_get_wtime();
 
@@ -93,7 +95,7 @@ int main(int argc, char* argv[]) {
     double t_sec = omp_get_wtime() - t_sec_ini;
     std::cout << "[Secuencial] Tiempo: " << t_sec << " s" << std::endl;
 
-    // ── Versión PARALELA ──────────────────────────────────────────────────────
+    //  Versión PARALELA 
     std::cout << "\n[Paralelo]   Iniciando con " << max_threads << " hilos..." << std::endl;
     double t_par_ini = omp_get_wtime();
 
@@ -115,7 +117,7 @@ int main(int argc, char* argv[]) {
     double t_par = omp_get_wtime() - t_par_ini;
     std::cout << "[Paralelo]   Tiempo: " << t_par << " s" << std::endl;
 
-    // ── Resumen ───────────────────────────────────────────────────────────────
+    //  Resumen 
     std::cout << "\n--------------------------------------------------" << std::endl;
     std::cout << "Speedup: " << t_sec / t_par << "x  ("
               << max_threads << " hilos)" << std::endl;
@@ -124,3 +126,4 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
+

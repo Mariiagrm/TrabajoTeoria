@@ -73,8 +73,6 @@ def reconstruccion_directorio(ruta_directorio, K):
     if len(archivos) < 2:
         raise ValueError("Se necesitan al menos 2 imágenes en el directorio.")
 
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
-
     if respuesta == 's':
         print("Ejecutando preprocesamiento optimizado con GPU (CUDA)...")
         print(f"Encontradas {len(archivos)} imágenes. Calculando descriptores SIFT con CUDA...")
@@ -93,9 +91,7 @@ def reconstruccion_directorio(ruta_directorio, K):
         print(resultado.stdout)
         print(f"Tiempo total de cálculo de descriptores SIFT: {time_end - time_start:.2f} segundos")
 
-        with open(csv_path, "a") as f:
-            f.write(f"sift_descriptores_cuda,{time_end - time_start:.6f},{len(archivos)}\n")
-
+      
         # Leer los .sift binarios escritos por cuda_sift y reconstruir
         # (keypoints, descriptors) 
         kp_dtype = np.dtype([
@@ -151,10 +147,7 @@ def reconstruccion_directorio(ruta_directorio, K):
         time_end = time.time()
         print(f"Tiempo total de cálculo de descriptores SIFT: {time_end - time_start:.2f} segundos")
 
-        with open(csv_path, "a") as f:
-            f.write(f"sift_descriptores,{time_end - time_start:.6f},{len(archivos)}\n")
-        print("Descriptores SIFT calculados.")
-
+ 
     keypoints_list   = [r[0] for r in resultados]
     descriptores_list = [r[1] for r in resultados]
 
@@ -349,7 +342,7 @@ if __name__ == "__main__":
         # fx=fy ~ image_width es una aproximación razonable sin calibración.
         # cx, cy = mitad exacta de la imagen.
         IMG_W, IMG_H = 5712, 4284
-        f = float(IMG_W)           # focal length en píxeles (ajustar si tienes calibración real)
+        f = float(IMG_W)         
         cx = IMG_W / 2.0           # 2856.0
         cy = IMG_H / 2.0           # 2142.0
         K_ejemplo = np.array([[f,   0.0, cx],
@@ -358,7 +351,7 @@ if __name__ == "__main__":
                             
 
         # 2. Reconstrucción 3D desde todas las fotos del directorio
-        ruta_fotos = ruta("data/")
+        ruta_fotos = ruta("data")
         puntos_3d_resultado = reconstruccion_directorio(ruta_fotos, K_ejemplo)
 
         # 3. Mandar el resultado 3D a C
