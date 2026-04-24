@@ -88,7 +88,6 @@ Matrix strassen_secuencial(Matrix A, Matrix B) {
 
 
 // 3. EL ALGORITMO DE STRASSEN (Paralelo con OpenMP y Logs a Fichero)
-// IMPORTANTE: Recuerda actualizar la firma en tu "strassen_3d.h"
 Matrix strassen_paralelo(Matrix A, Matrix B, FILE *log_file) {
     int n = A.size;
 

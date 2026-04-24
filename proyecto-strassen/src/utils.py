@@ -336,7 +336,6 @@ if __name__ == "__main__":
     if parametro == "1":
         print("--- PASO 1: Procesamiento de Imágenes y Generación de Binario ---")
 
-        # Si tu estructura es /app/data/test
         # exportar_imagenes_a_binario('data/train', 'data_binaria/training')
         # Matriz intrínseca estimada para imágenes de 5712x4284 px.
         # fx=fy ~ image_width es una aproximación razonable sin calibración.
