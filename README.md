@@ -109,7 +109,7 @@ La diferencia clave entre las dos versiones paralelas: **Tasks** crea nuevas tar
 
 **Tasks puntúa mejor a n=2048 con 8 hilos** porque a ese tamaño la recursión tiene más niveles con trabajo real, y Tasks puede aprovechar mejor el paralelismo en los niveles intermedios que Sections ignora.
 
-**El paralelismo apenas ayuda con n=128**: el tiempo de split, sincronización y reunión de resultados supera al cómputo útil. El umbral de rentabilidad está alrededor de n=256.
+**El paralelismo apenas ayuda con n=128**: el tiempo de divide, sincronización y unión de resultados supera al cómputo útil. El umbral de rentabilidad está alrededor de n=256.
 
 **Saturación a 16 hilos**: la mejora de 8→16 hilos es pequeña o nula porque el algoritmo solo expone 7 tareas independientes en el primer nivel. El límite teórico de Sections es speedup=7 (Ley de Amdahl con fracción paralela = 7/7).
 
