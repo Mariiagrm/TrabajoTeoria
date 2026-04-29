@@ -204,3 +204,106 @@ Matrix strassen_paralelo(Matrix A, Matrix B, FILE *log_file) {
 
     return C;
 }
+
+// Strassen con parallel sections solo en el primer nivel; recursión usa versión secuencial pura
+Matrix strassen_secuencial_openMP(Matrix A, Matrix B, FILE *log_file) {
+    int n = A.size;
+
+    if (n <= 64) {
+        fprintf(log_file, "[Base] Caso base n=%d\n", n);
+        fflush(log_file);
+        return multiplicacion_clasica(A, B);
+    }
+
+    fprintf(log_file, "[División] Dividiendo matrices de tamaño %d\n", n);
+    fflush(log_file);
+
+    int mitad = n / 2;
+    Matrix A11 = crear_matriz(mitad), A12 = crear_matriz(mitad), A21 = crear_matriz(mitad), A22 = crear_matriz(mitad);
+    Matrix B11 = crear_matriz(mitad), B12 = crear_matriz(mitad), B21 = crear_matriz(mitad), B22 = crear_matriz(mitad);
+
+    for (int i = 0; i < mitad; i++) {
+        for (int j = 0; j < mitad; j++) {
+            A11.data[i][j] = A.data[i][j];
+            A12.data[i][j] = A.data[i][j + mitad];
+            A21.data[i][j] = A.data[i + mitad][j];
+            A22.data[i][j] = A.data[i + mitad][j + mitad];
+
+            B11.data[i][j] = B.data[i][j];
+            B12.data[i][j] = B.data[i][j + mitad];
+            B21.data[i][j] = B.data[i + mitad][j];
+            B22.data[i][j] = B.data[i + mitad][j + mitad];
+        }
+    }
+
+    Matrix S1 = restar(B12, B22);
+    Matrix S2 = sumar(A11, A12);
+    Matrix S3 = sumar(A21, A22);
+    Matrix S4 = restar(B21, B11);
+    Matrix S5 = sumar(A11, A22);
+    Matrix S6 = sumar(B11, B22);
+    Matrix S7 = restar(A12, A22);
+    Matrix S8 = sumar(B21, B22);
+    Matrix S9 = restar(A11, A21);
+    Matrix S10 = sumar(B11, B12);
+
+    Matrix P1, P2, P3, P4, P5, P6, P7;
+
+    fprintf(log_file, "[Tareas] Lanzando 7 secciones paralelas para n=%d\n", n);
+    fflush(log_file);
+
+    // Paralelismo solo en este nivel; las llamadas recursivas usan strassen_secuencial(A,B)
+    // para evitar sobresubscripción de hilos.
+    #pragma omp parallel sections
+    {
+        #pragma omp section
+        { P1 = strassen_secuencial(A11, S1); }
+
+        #pragma omp section
+        { P2 = strassen_secuencial(S2, B22); }
+
+        #pragma omp section
+        { P3 = strassen_secuencial(S3, B11); }
+
+        #pragma omp section
+        { P4 = strassen_secuencial(A22, S4); }
+
+        #pragma omp section
+        { P5 = strassen_secuencial(S5, S6); }
+
+        #pragma omp section
+        { P6 = strassen_secuencial(S7, S8); }
+
+        #pragma omp section
+        { P7 = strassen_secuencial(S9, S10); }
+    }
+
+    fprintf(log_file, "[Combinar] Combinando submatrices P para n=%d\n", n);
+    fflush(log_file);
+
+    Matrix C11 = sumar(restar(sumar(P5, P4), P2), P6);
+    Matrix C12 = sumar(P1, P2);
+    Matrix C21 = sumar(P3, P4);
+    Matrix C22 = restar(restar(sumar(P5, P1), P3), P7);
+
+    Matrix C = crear_matriz(n);
+    for (int i = 0; i < mitad; i++) {
+        for (int j = 0; j < mitad; j++) {
+            C.data[i][j] = C11.data[i][j];
+            C.data[i][j + mitad] = C12.data[i][j];
+            C.data[i + mitad][j] = C21.data[i][j];
+            C.data[i + mitad][j + mitad] = C22.data[i][j];
+        }
+    }
+
+    liberar_matriz(A11); liberar_matriz(A12); liberar_matriz(A21); liberar_matriz(A22);
+    liberar_matriz(B11); liberar_matriz(B12); liberar_matriz(B21); liberar_matriz(B22);
+    liberar_matriz(P1); liberar_matriz(P2); liberar_matriz(P3); liberar_matriz(P4);
+    liberar_matriz(P5); liberar_matriz(P6); liberar_matriz(P7);
+    liberar_matriz(S1); liberar_matriz(S2); liberar_matriz(S3); liberar_matriz(S4);
+    liberar_matriz(S5); liberar_matriz(S6); liberar_matriz(S7); liberar_matriz(S8);
+    liberar_matriz(S9); liberar_matriz(S10);
+    liberar_matriz(C11); liberar_matriz(C12); liberar_matriz(C21); liberar_matriz(C22);
+
+    return C;
+}

@@ -59,8 +59,16 @@ static void benchmark_strassen(double *t_sec_out, double *t_par_out, int n, int 
     }
     *t_par_out = omp_get_wtime() - t0;
     if (log) fclose(log);
+
+    printf("Strassen secuencial con OpenMP (paralelismo solo en el primer nivel)...\n");
+    t0 = omp_get_wtime();
+    Matrix C_seq_omp = strassen_secuencial_openMP(A, B, log);
+    double t_sec_omp = omp_get_wtime() - t0;
+    printf("  Tiempo secuencial OpenMP : %.4f s\n", t_sec_omp);
     printf("  Tiempo paralelo   : %.4f s\n", *t_par_out);
-    printf("  Speedup           : %.2fx\n", *t_sec_out / *t_par_out);
+    printf("  Speedup  (Secuencial vs Paralelo)         : %.2fx\n", *t_sec_out / *t_par_out);
+    printf("  Speedup  (Secuencial OpenMP vs Paralelo)         : %.2fx\n", t_sec_omp / *t_par_out);
+    printf("  Speedup  (Secuencial OpenMP vs Secuencial)         : %.2fx\n", t_sec_omp / *t_sec_out);
 
     if (verificar_resultados(C_seq, C_par))
         printf("  [ OK ] Resultados coinciden.\n");

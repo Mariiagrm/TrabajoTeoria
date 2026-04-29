@@ -10,3 +10,7 @@
     cd src
     bash run.sh
 
+# Ejecutar benchmarks strassen
+    cd /src/strassen
+    make
+    ./benchmark_strassen

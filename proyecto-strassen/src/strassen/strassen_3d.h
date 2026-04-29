@@ -3,5 +3,5 @@
 
 Matrix strassen_secuencial(Matrix A, Matrix B);
 Matrix strassen_paralelo(Matrix A, Matrix B, FILE *log_file);   
-
+Matrix strassen_secuencial_openMP(Matrix A, Matrix B, FILE *log_file);
 #endif // STRASSEN_3D_H
