@@ -34,7 +34,7 @@ static int csv_has_expected_header(const char *path) {
            strstr(buf, "hilos")               != NULL;
 }
 
-static void benchmark_strassen(double *t_sec_out, double *t_par_out, int n, int num_hilos) {
+static void benchmark_strassen(double *t_sec_out, double *t_sec_omp_out, double *t_par_out, int n, int num_hilos) {
     printf("\n............... BENCHMARK STRASSEN %dx%d | %d hilos ...............\n",
            n, n, num_hilos);
 
@@ -58,25 +58,25 @@ static void benchmark_strassen(double *t_sec_out, double *t_par_out, int n, int 
         { C_par = strassen_paralelo(A, B, log); }
     }
     *t_par_out = omp_get_wtime() - t0;
-    if (log) fclose(log);
 
     printf("Strassen secuencial con OpenMP (paralelismo solo en el primer nivel)...\n");
     t0 = omp_get_wtime();
     Matrix C_seq_omp = strassen_secuencial_openMP(A, B, log);
-    double t_sec_omp = omp_get_wtime() - t0;
-    printf("  Tiempo secuencial OpenMP : %.4f s\n", t_sec_omp);
+    *t_sec_omp_out = omp_get_wtime() - t0;
+    if (log) fclose(log);
+    printf("  Tiempo secuencial OpenMP : %.4f s\n", *t_sec_omp_out);
     printf("  Tiempo paralelo   : %.4f s\n", *t_par_out);
     printf("  Speedup  (Secuencial vs Paralelo)         : %.2fx\n", *t_sec_out / *t_par_out);
-    printf("  Speedup  (Secuencial OpenMP vs Paralelo)         : %.2fx\n", t_sec_omp / *t_par_out);
-    printf("  Speedup  (Secuencial OpenMP vs Secuencial)         : %.2fx\n", t_sec_omp / *t_sec_out);
+    printf("  Speedup  (Paralelo vs Secuencial OpenMP)         : %.2fx\n", *t_par_out / *t_sec_omp_out  );
+    printf("  Speedup  ( Secuencial vs Secuencial OpenMP)         : %.2fx\n", *t_sec_out / *t_sec_omp_out);
 
-    if (verificar_resultados(C_seq, C_par))
+    if (verificar_resultados(C_seq, C_par) and verificar_resultados(C_seq, C_seq_omp))
         printf("  [ OK ] Resultados coinciden.\n");
     else
         printf("  [ X ] Error matematico en Strassen.\n");
 
     liberar_matriz(A); liberar_matriz(B);
-    liberar_matriz(C_seq); liberar_matriz(C_par);
+    liberar_matriz(C_seq); liberar_matriz(C_par); liberar_matriz(C_seq_omp);
 }
 
 static void parse_int_list(const char *s, int *out, int max_n, int *n_out) {
@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     if (need_header) {
-        fprintf(csv, "n,hilos,tiempo_secuencial_s,tiempo_paralelo_s,speedup\n");
+        fprintf(csv, "n,hilos,tiempo_secuencial_s,tiempo_paralelo_s, tiempo_secuencial_openmp_s,speedup (Secuencial vs Paralelo),speedup (Paralelo vs Secuencial OpenMP),speedup (Secuencial vs Secuencial OpenMP)\n");
     }
 
     printf("Barrido: %d tamanos x %d configuraciones de hilos. Max hilos disponibles: %d\n",
@@ -137,12 +137,12 @@ int main(int argc, char *argv[]) {
         int n = sizes[s];
         for (int h = 0; h < num_threads; ++h) {
             int p = threads[h];
-            double t_sec = 0.0, t_par = 0.0;
-            benchmark_strassen(&t_sec, &t_par, n, p);
+            double t_sec = 0.0, t_par = 0.0, t_sec_omp = 0.0;
+            benchmark_strassen(&t_sec, &t_sec_omp, &t_par, n, p);
 
             double speedup = (t_par > 0.0) ? (t_sec / t_par) : 0.0;
-            fprintf(csv, "%d,%d,%.6f,%.6f,%.4f\n",
-                    n, p, t_sec, t_par, speedup);
+            fprintf(csv, "%d,%d,%.6f,%.6f,%.4f,%.2f,%.2f,%.2f\n",
+                    n, p, t_sec, t_par, t_sec_omp, speedup,  t_par/t_sec_omp, t_sec/t_sec_omp);
             fflush(csv);
         }
     }
